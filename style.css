@@ -1,0 +1,66 @@
+/* Custom CSS for Interactive Neural Network Visualizer */
+
+/* Main Page Theme */
+body {
+    background-color: #0e1117;
+    color: #fafafa;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Sidebar Styling */
+[data-testid="stSidebar"] {
+    background-image: linear-gradient(180deg, #111d2b 0%, #0e1117 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Glassmorphism containers */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+div.stButton > button:first-child {
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    color: white;
+    padding: 0.5rem 2rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+div.stButton > button:first-child:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+}
+
+/* Highlighting concept boxes */
+.concept-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    margin: 16px 0;
+    backdrop-filter: blur(10px);
+}
+
+.concept-title {
+    color: #818cf8;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.concept-desc {
+    color: #94a3b8;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* Code styling */
+code {
+    color: #e879f9 !important;
+}
