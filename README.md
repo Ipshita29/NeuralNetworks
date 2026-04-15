@@ -1,26 +1,24 @@
-# 🧠 Neural Network Visualizer  
-### *glory & honor — mind & soul*
-
+# Neural Network Visualizer  
 An interactive web application that helps users **understand how neural networks learn visually**.
 
 Instead of treating machine learning as a black box, this tool allows you to **see how decision boundaries evolve in real-time** as you adjust the network.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎛️ Real-time neural network visualization  
-- 📊 Dynamic decision boundary mapping  
-- 🧠 Neural network built from scratch (NumPy)  
-- 📂 Upload your own CSV dataset  
-- 🧹 Automatic data cleaning (handles missing + text data)  
-- 🔄 Instant retraining on parameter changes  
-- 📈 Network architecture visualization  
-- 🎓 Beginner-friendly explanations  
+- Real-time neural network visualization  
+- Dynamic decision boundary mapping  
+- Neural network built from scratch (NumPy)  
+- Upload your own CSV dataset  
+- Automatic data cleaning (handles missing + text data)  
+- Instant retraining on parameter changes  
+- Network architecture visualization  
+- Beginner-friendly explanations  
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - Streamlit (Frontend & App Framework)
 - NumPy (Core ML Logic)
@@ -31,7 +29,9 @@ Instead of treating machine learning as a black box, this tool allows you to **s
 
 ---
 
-## 📂 Project Structure
+## Project Structure
+
+```
 
 NeuralNetworks/
 │
@@ -40,13 +40,38 @@ NeuralNetworks/
 ├── requirements.txt # Dependencies
 └── README.md # Project documentation
 
+```
 ---
 
-## 🚀 Installation
+## Installation
 
 ```bash
 git clone https://github.com/your-username/neural-network-visualizer.git
 cd neural-network-visualizer
 pip install -r requirements.txt
 streamlit run app.py
+
+```
+---
+
+## How to Use
+
+### 1. Upload Data
+- Use built-in datasets OR upload your CSV file  
+- Select feature columns and target column  
+
+### 2. Adjust the Neural Network
+- **Hidden Layers** → Depth of learning  
+- **Neurons per Layer** → Model capacity  
+- **Learning Rate** → Speed of learning  
+
+### 3. Visualize
+- Watch how the decision boundary changes instantly  
+- Observe how the network adapts to your data  
+
+---
+
+## Sample dataset to use
+[Uploading sample_data_basic.csv…]()
+
 
