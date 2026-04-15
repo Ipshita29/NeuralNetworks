@@ -71,7 +71,5 @@ streamlit run app.py
 
 ---
 
-## Sample dataset to use
-[Uploading sample_data_basic.csv…]()
 
 
