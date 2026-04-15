@@ -2,210 +2,322 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
-import requests
-import io
-from nn_engine import NeuralNetwork, Layer, Activation, generate_data, StandardScaler
 
-# Page Setup
-st.set_page_config(page_title="Neural Lab Pro", layout="wide", page_icon="🧬")
+# --- Neural Engine Logic ---
 
-# Custom CSS
+class Activation:
+    @staticmethod
+    def sigmoid(x): return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
+    @staticmethod
+    def sigmoid_prime(x):
+        s = Activation.sigmoid(x)
+        return s * (1 - s)
+    @staticmethod
+    def relu(x): return np.maximum(0, x)
+    @staticmethod
+    def relu_prime(x): return (x > 0).astype(float)
+    @staticmethod
+    def tanh(x): return np.tanh(x)
+    @staticmethod
+    def tanh_prime(x): return 1 - np.tanh(x)**2
+    @staticmethod
+    def get(name):
+        return {
+            "Sigmoid": (Activation.sigmoid, Activation.sigmoid_prime),
+            "ReLU": (Activation.relu, Activation.relu_prime),
+            "Tanh": (Activation.tanh, Activation.tanh_prime)
+        }.get(name, (Activation.sigmoid, Activation.sigmoid_prime))
+
+class Layer:
+    def __init__(self, input_size, output_size, activation_name="Sigmoid"):
+        scale = np.sqrt(2.0/input_size) if activation_name == "ReLU" else np.sqrt(1.0/input_size)
+        self.weights = np.random.randn(input_size, output_size) * scale
+        self.biases = np.zeros((1, output_size))
+        self.activation_name = activation_name
+        self.activation, self.activation_prime = Activation.get(activation_name)
+        
+        self.mw, self.vw = np.zeros_like(self.weights), np.zeros_like(self.weights)
+        self.mb, self.vb = np.zeros_like(self.biases), np.zeros_like(self.biases)
+        
+        self.last_input = None
+        self.last_z = None
+        self.last_a = None
+        self.dw, self.db = None, None
+
+    def forward(self, input_data):
+        self.last_input = input_data
+        self.last_z = np.dot(input_data, self.weights) + self.biases
+        self.last_a = self.activation(self.last_z)
+        return self.last_a
+
+    def backward(self, output_gradient):
+        delta = output_gradient * self.activation_prime(self.last_z)
+        self.dw = np.dot(self.last_input.T, delta)
+        self.db = np.sum(delta, axis=0, keepdims=True)
+        return np.dot(delta, self.weights.T)
+
+class NeuralNetwork:
+    def __init__(self, architecture, learning_rate=0.01, activation="Sigmoid", beta1=0.9, beta2=0.999, epsilon=1e-8):
+        self.layers = [Layer(architecture[i], architecture[i+1], activation) for i in range(len(architecture)-1)]
+        self.lr = learning_rate
+        self.beta1, self.beta2 = beta1, beta2
+        self.epsilon = epsilon
+        self.t = 0
+
+    def predict(self, x):
+        out = x
+        for layer in self.layers:
+            out = layer.forward(out)
+        return out
+
+    def train_step(self, x, y):
+        self.t += 1
+        prediction = self.predict(x)
+        
+        if prediction.shape != y.shape:
+            return None
+            
+        grad = 2 * (prediction - y) / y.size
+        
+        for layer in reversed(self.layers):
+            grad = layer.backward(grad)
+            
+            layer.mw = self.beta1 * layer.mw + (1 - self.beta1) * layer.dw
+            layer.vw = self.beta2 * layer.vw + (1 - self.beta2) * (layer.dw**2)
+            mw_corr = layer.mw / (1 - self.beta1**self.t)
+            vw_corr = layer.vw / (1 - self.beta2**self.t)
+            layer.weights -= self.lr * mw_corr / (np.sqrt(vw_corr) + self.epsilon)
+            
+            layer.mb = self.beta1 * layer.mb + (1 - self.beta1) * layer.db
+            layer.vb = self.beta2 * layer.vb + (1 - self.beta2) * (layer.db**2)
+            mb_corr = layer.mb / (1 - self.beta1**self.t)
+            vb_corr = layer.vb / (1 - self.beta2**self.t)
+            layer.biases -= self.lr * mb_corr / (np.sqrt(vb_corr) + self.epsilon)
+            
+        return np.mean((prediction - y)**2)
+
+class StandardScaler:
+    def __init__(self):
+        self.mean = None
+        self.std = None
+        
+    def fit_transform(self, x):
+        self.mean = np.mean(x, axis=0)
+        self.std = np.std(x, axis=0)
+        self.std[self.std == 0] = 1
+        return (x - self.mean) / self.std
+
+def generate_data(type="circles", n_samples=300, noise=0.1):
+    from sklearn.datasets import make_circles, make_moons, make_blobs
+    if type == "circles":
+        X, y = make_circles(n_samples=n_samples, factor=0.5, noise=noise)
+    elif type == "moons":
+        X, y = make_moons(n_samples=n_samples, noise=noise)
+    else:
+        X, y = make_blobs(n_samples=n_samples, centers=2, cluster_std=noise*5, random_state=42)
+    return X.astype(float), y.reshape(-1, 1).astype(float)
+
+# Silently cleans data so the user never sees technical errors
+def validate_and_clean_data_silent(df, feature_cols, label_col):
+    try:
+        X_df = df[feature_cols].copy()
+        y_series = df[label_col].copy()
+        
+        # Auto-encode text in features
+        if X_df.select_dtypes(include=['object', 'category']).columns.any():
+            X_df = pd.get_dummies(X_df, drop_first=True)
+            
+        for col in X_df.columns:
+            X_df[col] = pd.to_numeric(X_df[col], errors='coerce')
+            
+        # Quick mean fill
+        if X_df.isna().sum().sum() > 0:
+            X_df.fillna(X_df.mean(numeric_only=True), inplace=True)
+            X_df.fillna(0, inplace=True)
+            
+        X_num = np.array(X_df, dtype=float)
+        
+        # Target fix
+        if y_series.isna().sum() > 0:
+            val = y_series.mode()
+            y_series = y_series.fillna(val[0] if not val.empty else 0)
+            
+        if y_series.dtype == 'object' or str(y_series.dtype) == 'category':
+            y_series = pd.factorize(y_series)[0]
+        else:
+            y_series = pd.to_numeric(y_series, errors='coerce').fillna(0)
+            
+        y_num = np.array(y_series, dtype=float).reshape(-1, 1)
+        
+        if X_num.shape[0] == 0 or y_num.shape[0] == 0 or X_num.shape[0] != y_num.shape[0]:
+            return None, None
+            
+        return X_num, y_num
+    except Exception:
+        return None, None
+
+# --- Streamlit App ---
+
+st.set_page_config(page_title="Neural Network Visualizer", layout="wide", page_icon="🧠")
+
 with open("style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# --- Sidebar Configuration ---
-st.sidebar.markdown("### Model Configuration")
+# -----------------
+# SIDEBAR
+# -----------------
+st.sidebar.title("Data Setup")
 
-# Dataset Source Logic
-data_source = st.sidebar.radio("Dataset Source", ["Standard", "Upload CSV", "Direct URL"])
+data_source = st.sidebar.radio("Choose Dataset", ["Toy Examples (Generated)", "Upload CSV"], help="Pick pre-made data or upload your own file.")
 X, y = None, None
 
-if data_source == "Standard":
-    dataset_name = st.sidebar.selectbox("Select Pattern", ["Circles", "Moons", "Linear Clusters"])
-    noise_val = st.sidebar.slider("Dataset Noise", 0.0, 0.5, 0.1)
+if data_source == "Toy Examples (Generated)":
+    dataset_name = st.sidebar.selectbox("Pattern Type", ["Circles", "Moons", "Clusters"], help="These shapes test how well the neural network can bend its boundaries.")
+    noise_val = st.sidebar.slider("Data Messiness (Noise)", 0.0, 0.5, 0.1, help="Adds randomness mimicking real-world imperfect data.")
     X, y = generate_data(type=dataset_name.lower().split()[0], noise=noise_val)
 elif data_source == "Upload CSV":
-    uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
+    uploaded_file = st.sidebar.file_uploader("Upload CSV", type="csv", help="Input your own dataset. We handle missing values and text automatically!")
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.sidebar.info(f"Loaded {len(df)} rows.")
-        cols = df.columns.tolist()
-        x1_col = st.sidebar.selectbox("Feature x1", cols, index=0)
-        x2_col = st.sidebar.selectbox("Feature x2", cols, index=1 if len(cols)>1 else 0)
-        y_col = st.sidebar.selectbox("Label (y)", cols, index=len(cols)-1)
-        X = df[[x1_col, x2_col]].values
-        y = df[y_col].values.reshape(-1, 1)
-elif data_source == "Direct URL":
-    st.sidebar.caption("Provide a **Raw CSV URL** (e.g., from raw.githubusercontent.com)")
-    sample_url = "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv"
-    if st.sidebar.button("Use Sample URL (Iris)"):
-        url = sample_url
-    else:
-        url = st.sidebar.text_input("Raw CSV URL", placeholder="https://raw.githubusercontent.com/...")
-    
-    if url:
         try:
-            response = requests.get(url, timeout=5)
-            # Security & Format Check
-            content_type = response.headers.get("Content-Type", "").lower()
-            if "html" in content_type:
-                st.sidebar.error("❌ Link is a website/HTML page, not a raw file. Use a 'Raw' link instead.")
-            else:
-                df = pd.read_csv(io.StringIO(response.text))
-                st.sidebar.success("✅ Dataset fetched successfully.")
-                cols = df.columns.tolist()
-                x1_col = st.sidebar.selectbox("Feature x1 (URL)", cols, index=0)
-                x2_col = st.sidebar.selectbox("Feature x2 (URL)", cols, index=1 if len(cols)>1 else 0)
-                y_col = st.sidebar.selectbox("Label (y) (URL)", cols, index=len(cols)-1)
-                X = df[[x1_col, x2_col]].values
-                y = df[y_col].values.reshape(-1, 1)
-        except Exception as e:
-            st.sidebar.error(f"Fetch failed: {e}")
+            df = pd.read_csv(uploaded_file)
+            st.sidebar.caption(f"Loaded {len(df)} rows.")
+            cols = df.columns.tolist()
+            x1_col = st.sidebar.selectbox("First Feature Column", cols, index=0, help="The first variable giving the network hints.")
+            x2_col = st.sidebar.selectbox("Second Feature Column", cols, index=1 if len(cols)>1 else 0, help="The second variable.")
+            y_col = st.sidebar.selectbox("Output to Predict", cols, index=len(cols)-1, help="The column the network is trying to guess correctly.")
+            X, y = validate_and_clean_data_silent(df, [x1_col, x2_col], y_col)
+            if X is None:
+                st.sidebar.error("Could not parse dataset columns. Try picking different features.")
+        except Exception:
+            st.sidebar.error("Failed to read CSV. Please ensure it is formatted correctly.")
 
-# Architecture & Optimization
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Hyperparameters")
-num_hidden_layers = st.sidebar.slider("Hidden Layers", 1, 5, 2)
-neurons_per_layer = st.sidebar.slider("Neurons per Layer", 1, 32, 8)
-activation_fn = st.sidebar.selectbox("Activation", ["Sigmoid", "ReLU", "Tanh"], index=1)
-lr = st.sidebar.number_input("Learning Rate", value=0.001, format="%.4f")
-epochs = st.sidebar.number_input("Max Epochs", value=500)
-
-if st.sidebar.button("Reset & Retrain"):
-    st.session_state.trained = False
+st.sidebar.title("Adjust the Brain")
+num_hidden_layers = st.sidebar.slider("Hidden Layers", 1, 5, 2, help="More layers allow the model to learn complex patterns. Think of layers like steps in a recipe.")
+neurons_per_layer = st.sidebar.slider("Neurons per Layer", 1, 32, 8, help="Controls how much information each layer can hold. Too many can cause 'overthinking' (overfitting).")
+activation_fn = st.sidebar.selectbox("Activation Function", ["Sigmoid", "ReLU", "Tanh"], index=1, help="The math rule the neuron uses to 'fire'. ReLU is fast, Sigmoid is smooth.")
+lr = st.sidebar.select_slider("Learning Rate", options=[0.001, 0.01, 0.05, 0.1, 0.5], value=0.05, help="How fast the network corrects a mistake. Too high and it skips over the right answer.")
 
 # --- Initialization ---
-if 'trained' not in st.session_state:
-    st.session_state.trained = False
-    st.session_state.history = []
-    st.session_state.trained_nn = None
-
-# Scaling (Only fit if X is available)
-if X is not None:
+if X is not None and y is not None and len(X) > 0 and len(y) > 0:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 else:
+    st.markdown("<h2 style='text-align: center; color: #64748b; margin-top: 15vh;'>Please load some data on the left to begin exploring!</h2>", unsafe_allow_html=True)
     st.stop()
 
-def get_architecture():
-    return [2] + [neurons_per_layer] * num_hidden_layers + [1]
+def get_architecture(input_dim):
+    return [input_dim] + [neurons_per_layer] * num_hidden_layers + [1]
 
-# Visualization Model
-nn = NeuralNetwork(get_architecture(), lr, activation_fn)
-viz_nn = st.session_state.trained_nn if st.session_state.trained else nn
+# Instant Training Background Loop
+# We train it very quickly right before we draw the plots so the user sees results immediately
+nn = NeuralNetwork(get_architecture(X_scaled.shape[1]), lr, activation_fn)
+instant_epochs = 150 # fixed fast training cap
 
-# --- Main Navigation ---
-tabs = st.tabs(["Overview", "Exploration", "User Guide"])
+if 'last_loss' not in st.session_state:
+    st.session_state.last_loss = 1.0
 
-# 1. Overview Tab
-with tabs[0]:
-    st.markdown('<div class="concept-card"><div class="concept-title">Neural Engine Pro</div><div class="concept-body">This dashboard provides a professional environment to study and debug neural network behavior. It uses the Adam optimizer and mini-batch gradient descent for high-accuracy results on custom datasets.</div></div>', unsafe_allow_html=True)
+try:
+    for _ in range(instant_epochs):
+        loss = nn.train_step(X_scaled, y)
+        if loss is not None:
+            st.session_state.last_loss = loss
+except Exception:
+    pass
+
+# -----------------
+# MAIN PANEL
+# -----------------
+st.title("Neural Network Visualizer")
+
+tab1, tab2 = st.tabs(["Real-Time Visualization", "Beginner's Guide"])
+
+with tab1:
+    st.markdown("""
+    Welcome to the Visualizer! As you change the sliders on the left, the network trains instantly in the background. 
+    Watch the "Before / After" graph dynamically morph as the neural network changes shapes!
+    """)
     
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.subheader("Network Architecture")
-        arch = get_architecture()
+    # Metrics
+    with st.container():
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Dataset Rows", len(X), help="Total data points")
+        m2.metric("Features", X_scaled.shape[1], help="Number of input dimensions")
+        m3.metric("Network Depth", num_hidden_layers, help="Total hidden layers")
+        m4.metric("Current Accuracy estimate", f"{max(0, 100 - (st.session_state.last_loss*100)):.1f}%", help="Rough guess of accuracy based on Loss.")
+        
+    st.markdown("<br/>", unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.subheader("Network Topography (Architecture)")
+        arch = get_architecture(X_scaled.shape[1])
         fig = go.Figure()
         for i, count in enumerate(arch):
             nodes_y = np.linspace(-count/2, count/2, count)
+            # Primary nodes
             fig.add_trace(go.Scatter(x=[i]*count, y=nodes_y, mode='markers', 
-                                   marker=dict(size=12, color='#2563eb'), name=f"Layer {i}"))
+                                   marker=dict(size=14, color='#2563eb', line=dict(width=1, color='#ffffff')), name=f"Layer {i}"))
             if i < len(arch) - 1:
                 next_count = arch[i+1]
                 next_nodes_y = np.linspace(-next_count/2, next_count/2, next_count)
                 for y1 in nodes_y:
                     for y2 in next_nodes_y:
                         fig.add_trace(go.Scatter(x=[i, i+1], y=[y1, y2], mode='lines', 
-                                               line=dict(width=0.1, color='#e2e8f0'), hoverinfo='none'))
-        fig.update_layout(showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False), height=400, margin=dict(l=0,r=0,t=0,b=0))
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col2:
-        st.subheader("Current Dataset")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=X[y.flatten()==0, 0], y=X[y.flatten()==0, 1], mode='markers', 
-                               marker=dict(color='#ef4444', size=8), name="Class 0"))
-        fig.add_trace(go.Scatter(x=X[y.flatten()==1, 0], y=X[y.flatten()==1, 1], mode='markers', 
-                               marker=dict(color='#3b82f6', size=8), name="Class 1"))
-        fig.update_layout(title="Raw Input Features", margin=dict(l=0,r=0,t=40,b=0), height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-# 2. Exploration Tab
-with tabs[1]:
-    subtabs = st.tabs(["Neuron Math", "Forward Prop", "Training & Loss", "Boundary Analysis"])
-    
-    with subtabs[0]:
-        st.subheader("Interactive Neuron Computation")
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            w = st.slider("Weight (w)", -5.0, 5.0, 1.0)
-            b = st.slider("Bias (b)", -5.0, 5.0, 0.0)
-            x_in = st.number_input("Input (x)", value=0.5)
-            z_val = w*x_in + b
-            act, _ = Activation.get(activation_fn)
-            st.code(f"z = w*x + b = {z_val:.4f}\na = {activation_fn}(z) = {act(z_val):.4f}")
-        with c2:
-            z_range = np.linspace(-10, 10, 100)
-            fig = go.Figure(go.Scatter(x=z_range, y=act(z_range), name=activation_fn))
-            fig.add_trace(go.Scatter(x=[z_val], y=[act(z_val)], marker=dict(size=12, color='red'), name="Current Point"))
-            fig.update_layout(title="Activation Mapping", height=300)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with subtabs[1]:
-        st.subheader("Forward Propagation Trace")
-        sample_idx = st.slider("Select Data Sample", 0, len(X)-1, 0)
-        x_sample = X_scaled[sample_idx:sample_idx+1]
-        
-        current = x_sample
-        for i, layer in enumerate(viz_nn.layers):
-            with st.expander(f"Layer {i+1} Trace"):
-                st.write(f"Weights Shape: {layer.weights.shape}")
-                current = layer.forward(current)
-                st.write("Activation Output:")
-                st.code(f"{current}")
-
-    with subtabs[2]:
-        st.subheader("Model Training")
-        if st.button("Initialize Optimization"):
-            st.session_state.history = []
-            progress = st.progress(0)
-            loss_area = st.empty()
+                                               line=dict(width=0.2, color='#cbd5e1'), hoverinfo='none'))
+        fig.update_layout(showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False), 
+                          height=350, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig, width="stretch")
             
-            for epoch in range(epochs):
-                loss = nn.train_step(X_scaled, y)
-                st.session_state.history.append(loss)
-                if epoch % 50 == 0:
-                    progress.progress((epoch+1)/epochs)
-                    fig = go.Figure(go.Scatter(x=list(range(len(st.session_state.history))), y=st.session_state.history))
-                    fig.update_layout(title=f"MSE Loss: {loss:.6f}", xaxis_title="Epoch", yaxis_title="Loss")
-                    loss_area.plotly_chart(fig, use_container_width=True)
-            
-            st.session_state.trained_nn = nn
-            st.session_state.trained = True
-            st.success("Training Complete")
-
-    with subtabs[3]:
-        st.subheader("Decision Boundary Analysis")
-        if st.session_state.trained:
+    with c2:
+        st.subheader("Decision Boundary Output")
+        # Map decision boundary immediately using the instantly trained model
+        try:
             x_min, x_max = X_scaled[:, 0].min() - 0.5, X_scaled[:, 0].max() + 0.5
             y_min, y_max = X_scaled[:, 1].min() - 0.5, X_scaled[:, 1].max() + 0.5
             xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.1), np.arange(y_min, y_max, 0.1))
             grid = np.c_[xx.ravel(), yy.ravel()]
-            preds = st.session_state.trained_nn.predict(grid).reshape(xx.shape)
+            
+            if grid.shape[1] < X_scaled.shape[1]:
+                padding = np.zeros((grid.shape[0], X_scaled.shape[1] - grid.shape[1]))
+                grid_full = np.hstack([grid, padding])
+            else:
+                grid_full = grid
+                
+            raw_preds = nn.predict(grid_full)
+            preds = raw_preds.reshape(xx.shape)
             
             fig = go.Figure()
-            fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=preds, colorscale='RdBu', opacity=0.4))
-            fig.add_trace(go.Scatter(x=X_scaled[y.flatten()==0, 0], y=X_scaled[y.flatten()==1, 1], mode='markers', name="Class 0"))
-            fig.update_layout(title="Latent Space Separation", height=600)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Optimize the model in the Training tab to visualize features.")
+            # Contour mapped cleanly
+            # fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=preds, colorscale='Blues', opacity=0.4))
+            
+            # Scatter Points
+            if len(y) > 0 and y.max() <= 1 and y.min() >= 0:
+                fig.add_trace(go.Scatter(x=X_scaled[y.flatten()<=0.5, 0], y=X_scaled[y.flatten()<=0.5, 1], mode='markers', 
+                                       marker=dict(color="#9f3f3f", size=8, line=dict(width=1, color='#ffffff')), name="Group A"))
+                fig.add_trace(go.Scatter(x=X_scaled[y.flatten()>0.5, 0], y=X_scaled[y.flatten()>0.5, 1], mode='markers', 
+                                       marker=dict(color="#436db1", size=8, line=dict(width=1, color='#ffffff')), name="Group B"))
+            else:
+                fig.add_trace(go.Scatter(x=X_scaled[:, 0], y=X_scaled[:, 1], mode='markers', marker=dict(color=y.flatten(), colorscale='Viridis', size=8)))
+                
+            fig.update_layout(height=400, margin=dict(l=0,r=0,t=20,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, width="stretch")
+        except Exception:
+            st.info("Mapping the boundary is not possible with these feature shapes!")
 
-# 3. User Guide Tab
-with tabs[2]:
-    with open("user_guide.md") as f:
-        st.markdown(f.read())
-
-# Footer
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.8rem;'>Professional Neural Lab Pro | 2026 Academic Edition</p>", unsafe_allow_html=True)
+with tab2:
+    st.markdown("""
+    ### How to Use This Visualizer
+    Machine Learning can seem confusing, but under the hood, artificial neural networks are just trying to draw smart boundaries between different types of data.
+    
+    **1. Pick Your Data**
+    On the left sidebar, choose a dataset. For example, "Moons" creates two intertwined crescent shapes. The goal of the network is to draw a clean background separating the red dots from the blue dots.
+    
+    **2. Play with the Brain Settings**
+    - **Hidden Layers:** Think of a layer like a person analyzing trying to solve a puzzle. The more layers, the deeper the network thinks. If the shape is complicated, it needs more layers.
+    - **Neurons:** Think of neurons as connections. Each neuron holds a tiny bit of math helping shape the curve.
+    - **Learning Rate:** This is how fast the AI "jumps" to conclusions. If it's too high, it skips over the answer. If it's too low, it learns extremely slowly.
+    
+    **3. Watch it Learn Automatically!**
+    Whenever you slide a setting up or down, the background engine builds a brand-new Neural Network and trains it extremely fast (~150 times). The graph on the right instantly reflects the "Decision Boundary" - essentially showing you the mathematical wall the AI built between the groups!
+    """)

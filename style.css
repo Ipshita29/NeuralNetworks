@@ -10,14 +10,14 @@
     --border: #e2e8f0;
 }
 
-body {
-    background-color: var(--bg-primary);
+body .stApp {
+    background-color: var(--bg-secondary);
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
 }
 
 [data-testid="stSidebar"] {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border-right: 1px solid var(--border);
 }
 
@@ -42,11 +42,12 @@ body {
 
 /* Concept Cards */
 .concept-card {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 2rem;
     margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .concept-title {
@@ -54,6 +55,7 @@ body {
     font-weight: 700;
     letter-spacing: -0.025em;
     margin-bottom: 0.5rem;
+    color: var(--text-primary);
 }
 
 .concept-body {
@@ -62,19 +64,9 @@ body {
     line-height: 1.6;
 }
 
-/* Buttons */
-div.stButton > button:first-child {
-    background-color: var(--accent);
-    color: white;
-    border-radius: 6px;
-    padding: 0.6rem 1.5rem;
-    font-weight: 600;
-    border: none;
-    transition: opacity 0.2s;
-}
-
-div.stButton > button:first-child:hover {
-    opacity: 0.9;
+/* Alerts / Tooltips / Form elements styling */
+.stTextInput input, .stNumberInput input {
+    border-radius: 6px !important;
 }
 
 /* Data Tables & Code */
