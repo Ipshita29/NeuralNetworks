@@ -257,7 +257,7 @@ with tab1:
             nodes_y = np.linspace(-count/2, count/2, count)
             # Primary nodes
             fig.add_trace(go.Scatter(x=[i]*count, y=nodes_y, mode='markers', 
-                                   marker=dict(size=14, color='#2563eb', line=dict(width=1, color='#ffffff')), name=f"Layer {i}"))
+                                   marker=dict(size=14, color="#394d72", line=dict(width=1, color='#ffffff')), name=f"Layer {i}"))
             if i < len(arch) - 1:
                 next_count = arch[i+1]
                 next_nodes_y = np.linspace(-next_count/2, next_count/2, next_count)
@@ -307,17 +307,55 @@ with tab1:
 
 with tab2:
     st.markdown("""
-    ### How to Use This Visualizer
-    Machine Learning can seem confusing, but under the hood, artificial neural networks are just trying to draw smart boundaries between different types of data.
-    
-    **1. Pick Your Data**
-    On the left sidebar, choose a dataset. For example, "Moons" creates two intertwined crescent shapes. The goal of the network is to draw a clean background separating the red dots from the blue dots.
-    
-    **2. Play with the Brain Settings**
-    - **Hidden Layers:** Think of a layer like a person analyzing trying to solve a puzzle. The more layers, the deeper the network thinks. If the shape is complicated, it needs more layers.
-    - **Neurons:** Think of neurons as connections. Each neuron holds a tiny bit of math helping shape the curve.
-    - **Learning Rate:** This is how fast the AI "jumps" to conclusions. If it's too high, it skips over the answer. If it's too low, it learns extremely slowly.
-    
-    **3. Watch it Learn Automatically!**
-    Whenever you slide a setting up or down, the background engine builds a brand-new Neural Network and trains it extremely fast (~150 times). The graph on the right instantly reflects the "Decision Boundary" - essentially showing you the mathematical wall the AI built between the groups!
-    """)
+        ### ✧ How to Use This Visualizer ✧
+
+        Neural networks may sound complex, but at their core, they are simply learning how to separate patterns — quietly drawing invisible boundaries between different types of data.
+
+        ---
+
+        **1. Choose Your World**
+
+        From the sidebar, select a dataset to begin.
+
+        Each dataset is like a small universe of points.  
+        For example, *“Moons”* creates two curved shapes intertwined with each other.
+
+        Your network’s purpose is simple:  
+        to understand this space and gently divide one group from the other.
+
+        ---
+
+        **2. Shape the Mind**
+
+        Now you begin to design the “brain”.
+
+        - **Hidden Layers**  
+        Think of each layer as a deeper level of thought.  
+        More layers allow the network to understand more abstract and complex patterns.
+
+        - **Neurons**  
+        These are the tiny decision-makers inside each layer.  
+        More neurons give the network more flexibility to shape smoother, more detailed boundaries.
+
+        - **Learning Rate**  
+        This controls how quickly the network adapts.  
+        Too fast, and it may miss the answer.  
+        Too slow, and it takes its time finding clarity.
+
+        ---
+
+        **3. Watch the Transformation**
+
+        As you adjust the sliders, the network rebuilds itself instantly.
+
+        What you see is not just a graph —  
+        it is the model’s understanding of the data taking form.
+
+        The shifting colors represent the **decision boundary** —  
+        the invisible line that separates one pattern from another.
+
+        ---
+
+        ✦ With every change, you are not just tuning parameters —  
+        you are shaping how a machine learns to perceive the world.
+        """)

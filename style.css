@@ -1,78 +1,110 @@
-/* Professional Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Neural Aesthetic Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap');
 
 :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --accent: #2563eb;
-    --border: #e2e8f0;
+    --bg-primary: #f5efe6;
+    --bg-secondary: #ede5d8;
+    --text-primary: #2f3e5c;
+    --text-secondary: #6b7a99;
+    --accent: #6c7aa1;
+    --border: #d8cfbf;
 }
 
+/* App Background */
 body .stApp {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
 }
 
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
     border-right: 1px solid var(--border);
 }
 
-/* Custom Tabs */
+/* Titles (Mind & Soul vibe) */
+h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+}
+
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
-    border-bottom: 2px solid var(--border);
-    gap: 24px;
+    border-bottom: 1px solid var(--border);
+    gap: 20px;
 }
 
 .stTabs [data-baseweb="tab"] {
-    font-weight: 500;
     font-size: 0.95rem;
     color: var(--text-secondary);
     border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
 }
 
-.stTabs [data-baseweb="tab"] [aria-selected="true"] {
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
     color: var(--accent) !important;
     border-bottom-color: var(--accent) !important;
 }
 
-/* Concept Cards */
+/* Cards */
 .concept-card {
-    background: var(--bg-primary);
+    background: rgba(255, 255, 255, 0.5);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 14px;
     padding: 2rem;
     margin-bottom: 2rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
 }
 
+/* Card Titles */
 .concept-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 500;
     margin-bottom: 0.5rem;
-    color: var(--text-primary);
 }
 
+/* Card Text */
 .concept-body {
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
     line-height: 1.6;
 }
 
-/* Alerts / Tooltips / Form elements styling */
-.stTextInput input, .stNumberInput input {
-    border-radius: 6px !important;
+
+/* Buttons */
+.stButton button {
+    background-color: var(--accent);
+    color: white;
+    border-radius: 20px;
+    padding: 0.4rem 1rem;
+    border: none;
+    transition: 0.3s ease;
 }
 
-/* Data Tables & Code */
+.stButton button:hover {
+    background-color: #5a678c;
+}
+
+/* Code Blocks */
 code {
-    background-color: #f1f5f9 !important;
-    color: #1e293b !important;
-    padding: 2px 4px;
-    border-radius: 4px;
+    background-color: #f3eee5 !important;
+    color: #3b4a6b !important;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+/* Subtle Floating Effect */
+.concept-card:hover {
+    transform: translateY(-3px);
+    transition: 0.3s ease;
+}
+
+/* Optional: soft divider */
+hr {
+    border: none;
+    border-top: 1px dashed var(--border);
 }
