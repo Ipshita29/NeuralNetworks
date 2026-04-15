@@ -1,66 +1,86 @@
-/* Custom CSS for Interactive Neural Network Visualizer */
+/* Professional Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Main Page Theme */
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --accent: #2563eb;
+    --border: #e2e8f0;
+}
+
 body {
-    background-color: #0e1117;
-    color: #fafafa;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Inter', sans-serif;
 }
 
-/* Sidebar Styling */
 [data-testid="stSidebar"] {
-    background-image: linear-gradient(180deg, #111d2b 0%, #0e1117 100%);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border);
 }
 
-/* Glassmorphism containers */
+/* Custom Tabs */
 .stTabs [data-baseweb="tab-list"] {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+    gap: 24px;
 }
 
-div.stButton > button:first-child {
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    color: white;
-    padding: 0.5rem 2rem;
+.stTabs [data-baseweb="tab"] {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.stTabs [data-baseweb="tab"] [aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom-color: var(--accent) !important;
+}
+
+/* Concept Cards */
+.concept-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    border: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-div.stButton > button:first-child:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
-}
-
-/* Highlighting concept boxes */
-.concept-box {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 24px;
-    margin: 16px 0;
-    backdrop-filter: blur(10px);
+    padding: 2rem;
+    margin-bottom: 2rem;
 }
 
 .concept-title {
-    color: #818cf8;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    margin-bottom: 12px;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.5rem;
 }
 
-.concept-desc {
-    color: #94a3b8;
-    font-size: 0.95rem;
+.concept-body {
+    font-size: 1rem;
+    color: var(--text-secondary);
     line-height: 1.6;
 }
 
-/* Code styling */
+/* Buttons */
+div.stButton > button:first-child {
+    background-color: var(--accent);
+    color: white;
+    border-radius: 6px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    border: none;
+    transition: opacity 0.2s;
+}
+
+div.stButton > button:first-child:hover {
+    opacity: 0.9;
+}
+
+/* Data Tables & Code */
 code {
-    color: #e879f9 !important;
+    background-color: #f1f5f9 !important;
+    color: #1e293b !important;
+    padding: 2px 4px;
+    border-radius: 4px;
 }

@@ -3,7 +3,7 @@ import numpy as np
 class Activation:
     @staticmethod
     def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
+        return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
     
     @staticmethod
     def sigmoid_prime(x):
@@ -47,12 +47,15 @@ class Layer:
         self.activation_name = activation_name
         self.activation, self.activation_prime = Activation.get(activation_name)
         
-        # Internal state for visualization
+        # Adam Optimizer state
+        self.mw, self.vw = np.zeros_like(self.weights), np.zeros_like(self.weights)
+        self.mb, self.vb = np.zeros_like(self.biases), np.zeros_like(self.biases)
+        
+        # State for visualization
         self.last_input = None
         self.last_z = None
         self.last_a = None
-        self.dw = None
-        self.db = None
+        self.dw, self.db = None, None
 
     def forward(self, input_data):
         self.last_input = input_data
@@ -60,58 +63,69 @@ class Layer:
         self.last_a = self.activation(self.last_z)
         return self.last_a
 
-    def backward(self, output_gradient, learning_rate):
-        # Grad w.r.t z (weighted sum)
-        # delta = output_gradient * activation'(z)
+    def backward(self, output_gradient):
         delta = output_gradient * self.activation_prime(self.last_z)
-        
-        # Grad w.r.t weights (input^T * delta)
         self.dw = np.dot(self.last_input.T, delta)
-        # Grad w.r.t biases (sum(delta))
         self.db = np.sum(delta, axis=0, keepdims=True)
-        
-        # Grad w.r.t input (delta * weight^T)
         input_gradient = np.dot(delta, self.weights.T)
-        
-        # Update parameters
-        self.weights -= learning_rate * self.dw
-        self.biases -= learning_rate * self.db
-        
         return input_gradient
 
 class NeuralNetwork:
-    def __init__(self, architecture, learning_rate=0.1, activation="Sigmoid"):
-        """
-        architecture: list of layer sizes, e.g., [2, 4, 1]
-        """
-        self.layers = []
-        for i in range(len(architecture) - 1):
-            # All layers use same activation for simplicity in this visualizer
-            # but usually output layer might be different (e.g. sigmoid for binary)
-            self.layers.append(Layer(architecture[i], architecture[i+1], activation))
-        self.learning_rate = learning_rate
+    def __init__(self, architecture, learning_rate=0.001, activation="Sigmoid", beta1=0.9, beta2=0.999, epsilon=1e-8):
+        self.layers = [Layer(architecture[i], architecture[i+1], activation) for i in range(len(architecture)-1)]
+        self.lr = learning_rate
+        self.beta1, self.beta2 = beta1, beta2
+        self.epsilon = epsilon
+        self.t = 0 # timestep for Adam
 
-    def predict(self, input_data):
-        output = input_data
+    def predict(self, x):
+        out = x
         for layer in self.layers:
-            output = layer.forward(output)
-        return output
+            out = layer.forward(out)
+        return out
 
     def train_step(self, x, y):
-        # Forward pass
+        self.t += 1
+        # Forward
         prediction = self.predict(x)
         
-        # Loss (MSE gradient for simplicity)
-        # Error = prediction - labels
-        error_gradient = 2 * (prediction - y) / y.size
+        # Loss (MSE derivative)
+        grad = 2 * (prediction - y) / y.size
         
-        # Backward pass
-        grad = error_gradient
+        # Backward
         for layer in reversed(self.layers):
-            grad = layer.backward(grad, self.learning_rate)
-        
-        # Return loss for visualization
+            grad = layer.backward(grad)
+            
+            # Adam Updates
+            # Weights
+            layer.mw = self.beta1 * layer.mw + (1 - self.beta1) * layer.dw
+            layer.vw = self.beta2 * layer.vw + (1 - self.beta2) * (layer.dw**2)
+            mw_corr = layer.mw / (1 - self.beta1**self.t)
+            vw_corr = layer.vw / (1 - self.beta2**self.t)
+            layer.weights -= self.lr * mw_corr / (np.sqrt(vw_corr) + self.epsilon)
+            
+            # Biases
+            layer.mb = self.beta1 * layer.mb + (1 - self.beta1) * layer.db
+            layer.vb = self.beta2 * layer.vb + (1 - self.beta2) * (layer.db**2)
+            mb_corr = layer.mb / (1 - self.beta1**self.t)
+            vb_corr = layer.vb / (1 - self.beta2**self.t)
+            layer.biases -= self.lr * mb_corr / (np.sqrt(vb_corr) + self.epsilon)
+            
         return np.mean((prediction - y)**2)
+
+class StandardScaler:
+    def __init__(self):
+        self.mean = None
+        self.std = None
+        
+    def fit_transform(self, x):
+        self.mean = np.mean(x, axis=0)
+        self.std = np.std(x, axis=0)
+        self.std[self.std == 0] = 1 # Avoid division by zero
+        return (x - self.mean) / self.std
+        
+    def transform(self, x):
+        return (x - self.mean) / self.std
 
 def generate_data(type="circles", n_samples=300, noise=0.1):
     from sklearn.datasets import make_circles, make_moons, make_blobs
@@ -119,9 +133,6 @@ def generate_data(type="circles", n_samples=300, noise=0.1):
         X, y = make_circles(n_samples=n_samples, factor=0.5, noise=noise)
     elif type == "moons":
         X, y = make_moons(n_samples=n_samples, noise=noise)
-    else: # Linearly separable
+    else:
         X, y = make_blobs(n_samples=n_samples, centers=2, cluster_std=noise*5, random_state=42)
-    
-    # Scale labels for binary class
-    y = y.reshape(-1, 1)
-    return X, y
+    return X, y.reshape(-1, 1)
